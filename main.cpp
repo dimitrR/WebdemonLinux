@@ -11,9 +11,9 @@ void demonBody();
 
 int main(){
     //создаем потомка
-    int pid=fork();
+    //int pid=fork();
 
-    if(pid==-1){ // если не удалось запустить потомка
+    /*if(pid==-1){ // если не удалось запустить потомка
         cout<<"Error: Start Daemon failed ("<<strerror(errno)<<")"<<endl;//, strerror(errno));
         return -1;
     }
@@ -34,18 +34,18 @@ int main(){
             close(STDOUT_FILENO);
             close(STDERR_FILENO);
 
-            //выполняем основной код демона
+            //выполняем основной код демона*/
             demonBody();
 
             return 0;
-       }
+       /*}
        else{
             //родитель, завершим процес, т.к. основную свою задачу (запуск демона) мы выполнили
             return 0;
         }
     }
 
-    return 0;
+    return 0;*/
 }
 
 void demonBody(){
@@ -54,7 +54,7 @@ void demonBody(){
 
     //чтение настроек
     settingDemon *pSetting=new settingDemon;
-    if(pSetting->openSetting("/home/biosoftdeveloper/etc/mydemon.conf"))
+    if(pSetting->openSetting("/home/dimitr/etc/mydemon.conf"))
         pSetting->readSetting();
     else
         cout<<"error open setting file, set default setting"<<endl;
@@ -69,6 +69,8 @@ void demonBody(){
 
     //настраиваем путь
     pVideoDevice->setPath(sPath);
+    
+    pVideoDevice->viewInfoDevice();
 
     //сохраняемкадр с камеры
     pVideoDevice->getFrame(iTime);
