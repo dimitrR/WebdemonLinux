@@ -17,6 +17,8 @@ public:
     void openDevice(string dev_name);
     void closeDevice();
 
+    void viewInfoDevice();
+    
     void setPath(string sPath);
     void getFrame(int iTime);
 
@@ -29,6 +31,9 @@ private:
 
     void startCapturing();
     void stopCapturing();
+    
+    void savetojpeg(const char *filename);
+    unsigned char*YUVtoRGB(unsigned char *buffer);
 
     bool readFrame(string file_name);
     int  xioctl(int fd, int request, void *arg);
