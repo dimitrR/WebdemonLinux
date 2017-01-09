@@ -7,15 +7,12 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-
 
 #include "videodevice.h"
 #include "jpeglib.h"
 
-#define IMAGE_WIDTH     800
-#define IMAGE_HEIGHT    600
+#define IMAGE_WIDTH     1280
+#define IMAGE_HEIGHT    720
 
 videodevice::videodevice(){
 }
@@ -55,43 +52,12 @@ void videodevice::openDevice(string dev_name){
     cout<<"Open device"<< fileDevicePath<<endl;
 }
 
-void videodevice::viewInfoDevice(){
-    //запрос к драйверу устройства на получения информации
-    struct v4l2_capability device_params;
-    if(ioctl(fd, VIDIOC_QUERYCAP, &device_params)==-1){
-      printf ("\"VIDIOC_QUERYCAP\" error %d, %s\n", errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-
-    //выводи информацию о камере
-    printf("driver : %s\n",device_params.driver);
-    printf("card : %s\n",device_params.card);
-    printf("bus_info : %s\n",device_params.bus_info);
-    printf("version : %d.%d.%d\n",
-         ((device_params.version >> 16) & 0xFF),
-         ((device_params.version >> 8) & 0xFF),
-         (device_params.version & 0xFF));
-    printf("capabilities: 0x%08x\n", device_params.capabilities);
-    printf("device capabilities: 0x%08x\n", device_params.device_caps);
-
-    //format
-    struct v4l2_fmtdesc fmtdesc;
-    fmtdesc.index=0;
-    fmtdesc.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    while(ioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc)==0){
-        cout<<"image format"<<endl;
-        cout<<"pixelformat: "<<fmtdesc.description<<endl;
-        fmtdesc.index++;
-    }
-}
-
 void videodevice::setFormatcam(){
     struct v4l2_format fmt;
     fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width       = IMAGE_WIDTH;
     fmt.fmt.pix.height      = IMAGE_HEIGHT;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV422P;
-    //fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
 
     if(-1==xioctl(fd, VIDIOC_S_FMT, &fmt))
         errno_exit("VIDIOC_S_FMT");
@@ -113,12 +79,7 @@ void videodevice::getFrame(int iTime){
     while(true){
         startCapturing();
 
-        string sFile;
-        std::ostringstream os;
-        os<<i;
-        sFile=os.str();
-        
-        //=std::to_string(i);
+        string sFile=to_string(i);
         for(;;){
             if(readFrame(sPath+sFile))
                break;
@@ -193,10 +154,10 @@ bool videodevice::readFrame(string file_name){
     buffer *temp=devbuffer;
 
     //сохраняем в файл RAW
-    string rawFile=file_name+string(".raw");
-    FILE *out_file=fopen(rawFile.c_str(), "w");
-    fwrite(temp->start, temp->length, 1, out_file);
-    fclose(out_file);
+    //string rawFile=file_name+string(".raw");
+    //FILE *out_file=fopen(rawFile.c_str(), "w");
+    //fwrite(temp->start, temp->length, 1, out_file);
+    //fclose(out_file);
 
     //сохраняем фото в jpg
     cout<<"save jpeg"<<endl;
@@ -204,42 +165,6 @@ bool videodevice::readFrame(string file_name){
     savetojpeg(jpegFile.c_str());
 
     return true;
-}
-
-unsigned char* videodevice::YUVtoRGB(unsigned char *buffer){
-    unsigned char *rgbBuffer=(unsigned char*)malloc(IMAGE_WIDTH*IMAGE_HEIGHT*3+1);
-
-    char lnPixel=2;
-
-    for(int i=0; i<IMAGE_HEIGHT/8; i++){                            //блоки по вертикале
-        for(int j=0; j<IMAGE_WIDTH/8; j++){                         //блоки по горизонтале
-            int imgData=((i*8)*IMAGE_WIDTH+j*8)*lnPixel;            //накальная координата блока
-            for(int k=0; k<8; k++){                                 //пиксели по вертикале
-                for(int l=0; l<8; l++){                             //пиксели по горизонтале
-                    double Y=buffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel];
-                    double Cb=buffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel+1];
-                    double Cr=buffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel+2];
-
-                    double r=Y+Cr-128;
-                    double b=Y+Cb-128;
-                    double g=Y-r-b;
-
-                    if(r>255) r=255;
-                    else if(r<0) r=0;
-                    if(g>255) g=255;
-                    else if(g<0) g=0;
-                    if(b>255) b=255;
-                    else if(b<0) b=0;
-
-                    rgbBuffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel]=r;
-                    rgbBuffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel+1]=g;
-                    rgbBuffer[imgData+k*IMAGE_WIDTH*lnPixel+l*lnPixel+2]=b;
-                }
-            }
-        }
-    }
-
-    return rgbBuffer;
 }
 
 void videodevice::savetojpeg(const char *filename){
@@ -260,32 +185,39 @@ void videodevice::savetojpeg(const char *filename){
     }
 
     jpeg_stdio_dest(&cinfo, outfile);
-    cinfo.image_width=IMAGE_WIDTH;         //размер изображения
-    cinfo.image_height=IMAGE_HEIGHT;
-    cinfo.input_components=3;              //количество цветовых компанентов
+    cinfo.image_width=IMAGE_WIDTH & -1;         //размер изображения
+    cinfo.image_height=IMAGE_HEIGHT  & -1;
+    cinfo.input_components=3;                //количество цветовых компанентов
     cinfo.in_color_space=JCS_YCbCr;          //цветовая схема
 
     //установка параметров изображения
     jpeg_set_defaults(&cinfo);
 
     //установка качества изображения
-    jpeg_set_quality(&cinfo, 200, TRUE);
+    jpeg_set_quality(&cinfo, 120, TRUE);
 
     //Начало компрессии изображения
     jpeg_start_compress(&cinfo, TRUE);
 
-    int row_stride=IMAGE_WIDTH;
-
-    //unsigned char *bufferRGB=YUVtoRGB((unsigned char*)devbuffer->start);
-    //JSAMPLE *image_buffer=(JSAMPLE*)bufferRGB;
     JSAMPLE *image_buffer=(JSAMPLE*)devbuffer->start;
-    while (cinfo.next_scanline<cinfo.image_height) {
-        //запись построчна
-        row_pointer[0]=&image_buffer[cinfo.next_scanline*row_stride];
-        (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
+    
+    unsigned char *buf=new unsigned char[IMAGE_WIDTH*3]; 
+    while (cinfo.next_scanline<IMAGE_HEIGHT) { 
+        for(int i=0; i<cinfo.image_width; i+=2){ 
+            buf[i*3]=image_buffer[i*2]; 
+            buf[i*3+1]=image_buffer[i*2+1]; 
+            buf[i*3+2]=image_buffer[i*2+3]; 
+            buf[i*3+3]=image_buffer[i*2+2]; 
+            buf[i*3+4]=image_buffer[i*2+1]; 
+            buf[i*3+5]=image_buffer[i*2+3]; 
+        } 
+        row_pointer[0]=buf; 
+        image_buffer+=IMAGE_WIDTH*2; 
+        jpeg_write_scanlines(&cinfo, row_pointer, 1); 
     }
-
     jpeg_finish_compress(&cinfo);
+    delete [] buf;
+    
     fclose(outfile);
     jpeg_destroy_compress(&cinfo);
 }
