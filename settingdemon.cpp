@@ -5,11 +5,9 @@
 #include <unistd.h>
 #include <vector>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-#define SETTING_TIME    5
-#define SETTING_PATH    "home/dimitr/temp/"
+#define SETTING_TIME    30
+#define SETTING_PATH    "home/user/temp/"
 
 struct strItem{
     char *name;
