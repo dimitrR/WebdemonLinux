@@ -1,18 +1,21 @@
-#include <sys/ioctl.h>          //ioctrl()
+#include <sys/ioctl.h>          //ioctrl()   манипулирует базовыми параметрами устройств, представленных в виде специальных файлов. 
 #include <linux/videodev2.h>    //struct v4l2_capability
 #include <unistd.h>             //close()
 
-#include <sys/mman.h>
-#include <sstream>
+#include <sys/mman.h>//Отображение файлов в память
+#include <sstream>//работы со строками
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sstream>
 
 #include "videodevice.h"
 #include "jpeglib.h"
 
-#define IMAGE_WIDTH     1280
-#define IMAGE_HEIGHT    720
+#define IMAGE_WIDTH     640
+#define IMAGE_HEIGHT    480
 
 videodevice::videodevice(){
 }
@@ -71,15 +74,19 @@ void videodevice::closeDevice(){
     cout<<"Close device "<<fileDevicePath<<endl;
 }
 
-void videodevice::getFrame(int iTime){
+void videodevice::getFrame(int iTime){//метод readFrame — отвечает за чтение и обработку полученого изображения//
+    //методы startCapturing(), stopCapturing() — включение/выключение режима streaming у видеоустройства. Наличие этих функций, у камеры, можно проверить флагом V4L2_CAP_STREAMING [*].//
     setFormatcam();
-    initMMAP();
+    initMMAP();//создание буфера памяти устройства.
 
     long int i=1;
     while(true){
         startCapturing();
 
-        string sFile=to_string(i);
+        ostringstream str;
+         
+        str<<i;
+        string sFile=str.str();
         for(;;){
             if(readFrame(sPath+sFile))
                break;
@@ -91,7 +98,7 @@ void videodevice::getFrame(int iTime){
         sleep(iTime);
     }
 
-    freeMMAP();
+    freeMMAP();//чистка буфера памяти устройства.
 }
 
 void videodevice::setPath(string sPath){
@@ -105,7 +112,7 @@ void videodevice::initMMAP(){
     req.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory=V4L2_MEMORY_MMAP;
 
-    xioctl(fd, VIDIOC_REQBUFS, &req);
+    xioctl(fd, VIDIOC_REQBUFS, &req);//VIDIOC_REQBUFS  позволяет проинициализировать буфер памяти внутри устройства. 
 
     //выделить память
     devbuffer=(buffer*)calloc(req.count, sizeof(*devbuffer));
@@ -115,7 +122,7 @@ void videodevice::initMMAP(){
     buf.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.index=0;
 
-    xioctl(fd, VIDIOC_QUERYBUF, &buf);
+    xioctl(fd, VIDIOC_QUERYBUF, &buf);//Функция VIDIOC_QUERYBUF  позволяет считать параметры буфера, которые будут использоваться для создания memory-mapping области
 
     //отоброзить память устройства в оперативную память
     devbuffer->length=buf.length;
@@ -126,7 +133,7 @@ void videodevice::initMMAP(){
     cout<<"Init mmap"<<endl;
 }
 
-void videodevice::startCapturing(){
+void videodevice::startCapturing(){//переключить камеру в режим захвата. 
     struct v4l2_buffer buf;
     buf.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory=V4L2_MEMORY_MMAP;
@@ -137,7 +144,7 @@ void videodevice::startCapturing(){
 
     //камеру в режим захвата
     enum v4l2_buf_type type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    xioctl(fd, VIDIOC_STREAMON, &type);
+    xioctl(fd, VIDIOC_STREAMON, &type);//Функция VIDIOC_STREAMON[в†“] включает камеру в режим захвата.
 
     cout<<"Start capturing"<<endl;
 }
@@ -148,16 +155,16 @@ bool videodevice::readFrame(string file_name){
     buf.memory=V4L2_MEMORY_MMAP;
 
     //освобождаем буфер
-    if(xioctl(fd, VIDIOC_DQBUF, &buf)==EAGAIN)
+    if(xioctl(fd, VIDIOC_DQBUF, &buf)==EAGAIN)//Функция VIDIOC_DQBUF[в†“] освобождает буфер из очереди обработки драйвера. 
         return false;
 
     buffer *temp=devbuffer;
 
     //сохраняем в файл RAW
-    //string rawFile=file_name+string(".raw");
-    //FILE *out_file=fopen(rawFile.c_str(), "w");
-    //fwrite(temp->start, temp->length, 1, out_file);
-    //fclose(out_file);
+    string rawFile=file_name+string(".raw");
+    FILE *out_file=fopen(rawFile.c_str(), "w");
+    fwrite(temp->start, temp->length, 1, out_file);
+    fclose(out_file);
 
     //сохраняем фото в jpg
     cout<<"save jpeg"<<endl;

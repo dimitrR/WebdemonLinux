@@ -1,13 +1,15 @@
 #include "settingdemon.h"
 
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <fcntl.h>// Открытие и вывод каталогов,опции управления файлами
 #include <unistd.h>
 #include <vector>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define SETTING_TIME    5
-#define SETTING_PATH    "/home/biosoftdeveloper/temp/"
+#define SETTING_PATH    "/home/dimitr/temp/"
 
 struct strItem{
     char *name;

@@ -1,7 +1,7 @@
-#include <errno.h>      //errno
+#include <errno.h>      //errno объявление макроса для идентификации ошибок через их код
 #include <string.h>     //string
 #include <stdio.h>      //cout
-#include <unistd.h>     //fork();
+#include <unistd.h>     //fork(); setsid()
 #include <sys/stat.h>   //umask();
 
 #include "videodevice.h"
@@ -20,7 +20,7 @@ int main(){
     else
         if(!pid){
             //потомок
-            // разрешаем выставлять все биты прав на создаваемые файлы, иначе у нас могут быть проблемы с правами доступа
+            // разрешаем выставлять все биты прав на создаваемые файлы, иначе у нас могут быть проблемы с правами доступа.Функция _umask задает маску разрешений для файлов текущего процесса в режим, указанный в pmode.
             umask(0);
 
             //создаём новый сеанс, чтобы не зависеть от родителя
@@ -53,7 +53,7 @@ void demonBody(){
 
     //чтение настроек
     settingDemon *pSetting=new settingDemon;
-    if(pSetting->openSetting("/home/biosoftdeveloper/etc/mydemon.conf"))
+    if(pSetting->openSetting("/home/dimitr/etc/mydemon.conf"))
         pSetting->readSetting();
     else
         cout<<"error open setting file, set default setting"<<endl;
